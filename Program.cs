@@ -2,63 +2,73 @@ using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using SmartHomeRepo.Endpoints;
 
+// 1. ПАРСИНГ АРГУМЕНТОВ
+// Мы можем передавать: --urls "http://0.0.0.0:5000" или свои параметры типа --db "my.db"
 var builder = WebApplication.CreateBuilder(args);
 
-// Подключаем SQLite
+// Настройка порта и адреса через аргументы командной строки
+// Если запустить: dotnet run --urls "http://localhost:8080"
+// Или через кастомный аргумент --port (код ниже):
+var port = builder.Configuration["port"] ?? "5197"; // По умолчанию 5197
+var host = builder.Configuration["host"] ?? "localhost"; // По умолчанию localhost
+builder.WebHost.UseUrls($"http://{host}:{port}");
+
+// Настройка пути к БД через аргументы: dotnet run --db "production.db"
+var dbPath = builder.Configuration["db"] ?? "smart_home.db";
+
+// Подключаем SQLite с динамическим именем файла
 builder.Services.AddDbContext<AppDbContext>(opt => 
-    opt.UseSqlite("Data Source=smart_home.db"));
+    opt.UseSqlite($"Data Source={dbPath}"));
 
-
-    // 1. РЕГИСТРАЦИЯ СЕРВИСОВ (До builder.Build)
-builder.Services.AddEndpointsApiExplorer(); // Нужно для поиска эндпоинтов
-builder.Services.AddSwaggerGen();           // Генерирует саму спецификацию
-
+// РЕГИСТРАЦИЯ СЕРВИСОВ
+builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
     var xmlFilename = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
-    options.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, xmlFilename));
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFilename);
+    if (File.Exists(xmlPath)) 
+        options.IncludeXmlComments(xmlPath);
 });
 
+builder.Logging.AddSimpleConsole(options => 
+{
+    options.TimestampFormat = "[HH:mm:ss] ";
+});
 
 var app = builder.Build();
 
-
-// Используем встроенный логгер приложения
-var logger = app.Logger; 
-
-// Инициализация базы данных
+// Инициализация базы данных (делаем ОДИН раз)
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    if(db.Database.EnsureCreated()) // Создает файл .db, если его нет
+    var logger = app.Logger;
+
+    if (db.Database.EnsureCreated())
     {
-        logger.LogWarning("База данных не найдена. Создаю новую и заполняю начальными данными...");
-                
-        
-        DbInitializer.Seed(db);      // Заполняет данными
+        logger.LogWarning("База данных [{DbPath}] не найдена. Создаю новую...", dbPath);
+        DbInitializer.Seed(db);
+        logger.LogInformation("Начальные данные успешно загружены.");
     }
     else
     {
-        logger.LogWarning("База данных уже существует. Инициализация пропущена.");
-                DbInitializer.Seed(db);      // Заполняет данными
-
+        logger.LogInformation("База данных [{DbPath}] уже существует.", dbPath);
+        // Если нужно перетирать данные при каждом запуске (для тестов):
+        // DbInitializer.Seed(db); 
     }
-     
-    
 }
 
-
-app.UseSwagger();   
-app.UseSwaggerUI();
-
-// АВТОМАТИЧЕСКОЕ СОЗДАНИЕ БАЗЫ (чтобы не мучить студентов миграциями)
-using (var scope = app.Services.CreateScope()) {
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.EnsureCreated();
-    // Тут можно вызвать метод Seed(db) для заполнения начальными данными
+// Настройка Swagger
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();   
+    app.UseSwaggerUI();
 }
 
-app.MapApartmentEndpoints(logger);
+// МАППИНГ ЭНДПОИНТОВ
+// Передаем app.Logger, если MapApartmentEndpoints его требует
+app.MapApartmentEndpoints(); // Лучше доставать логгер внутри эндпоинта через DI
 app.MapRoomEndpoints();
+
+app.Logger.LogInformation("Сервер запущен на {Host}:{Port}", host, port);
 
 app.Run();

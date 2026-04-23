@@ -5,11 +5,16 @@ using SmartHomeRepo.Entitys;
 
 namespace SmartHomeRepo.Endpoints;
 
+public class LogCategory
+{
+    public const string Name = "ApartmentEndpoints";
+}
+
 public static partial class ApartmentEndpoints
 {
 
 
-    private static async Task<IResult> GetAllApartments(AppDbContext db)
+    private static async Task<IResult> GetAllApartments(AppDbContext db, ILogger<LogCategory> logger)
     {
         var apartments = await db.Apartments.Select(a => new ApartmentDto
         {
@@ -25,7 +30,7 @@ public static partial class ApartmentEndpoints
         return Results.Ok(apartments); // ОБЯЗАТЕЛЬНО возвращаем данные
     }
 
-    private static async Task<IResult> GetRoomsInApartment([Description("ID квартиры (НЕ номер квартиры)")] int id, AppDbContext db)
+    private static async Task<IResult> GetRoomsInApartment([Description("ID квартиры (НЕ номер квартиры)")] int id, AppDbContext db, ILogger<LogCategory> logger)
     {
         var apartment = await db.Apartments
             .Include(a => a.Rooms)
@@ -63,7 +68,7 @@ public static partial class ApartmentEndpoints
         return Results.Ok(rooms);
     }
 
-    private static async Task<IResult> CreateApartment([Description("Объект для создания квартиры, внутри строки номера и названия квартиры.")] CreateApartmentRequest req, AppDbContext db)
+private static async Task<IResult> CreateApartment([Description("Объект для создания квартиры, внутри строки номера и названия квартиры.")] CreateApartmentRequest req, AppDbContext db, ILogger<LogCategory> logger)
     {
         // 1. Валидация (минимально, чтобы GUI не слал мусор)
         if (string.IsNullOrWhiteSpace(req.Number))
@@ -87,17 +92,30 @@ public static partial class ApartmentEndpoints
         // 4. Ответ (возвращаем созданный объект с его новым ID)
         return Results.Created($"/api/apartments/{newApartment.Id}", newApartment);
     }
+
+private static async Task<IResult> DeleteApartment([Description("ID квартиры (НЕ номер квартиры)")] int id, AppDbContext db, ILogger<LogCategory> logger)
+    {
+        var apt = await db.Apartments.FindAsync(id);
+        if (apt == null)
+        {
+            logger.LogWarning("Попытка удалить квартиру с ID {Id}, но она не найдена.", id);
+            return Results.NotFound();
+        }
+
+        logger.LogWarning("Удаляю квартиру ID {Id} с номером {Number}.", apt.Id, apt.Number);
+        db.Apartments.Remove(apt);
+        await db.SaveChangesAsync();
+        return Results.NoContent();
+    }
+
 }
 
 
 public static partial class ApartmentEndpoints
 {
-    static ILogger logger;
 
-    public static void MapApartmentEndpoints(this IEndpointRouteBuilder routes, ILogger _logger)
+    public static void MapApartmentEndpoints(this IEndpointRouteBuilder routes)
     {
-
-        logger = _logger;
 
         var group = routes.MapGroup("/api/apartments").WithTags("Apartments");
 
@@ -123,17 +141,7 @@ public static partial class ApartmentEndpoints
     ;
 
 
-        group.MapDelete("/{id}/delete", async ([Description("ID квартиры (НЕ номер квартиры)")] int id, AppDbContext db) =>
-        {
-            var apt = await db.Apartments.FindAsync(id);
-            if (apt == null)
-                return Results.NotFound();
-
-            db.Apartments.Remove(apt);
-            await db.SaveChangesAsync();
-            return Results.NoContent();
-
-        })
+        group.MapDelete("/{id}", DeleteApartment)
         .WithSummary("Удалить квартиру по ID")
         .WithDescription("Удаляет квартиру по её ID. ВНИМАНИЕ: удаление квартиры удалит ВСЕ комнаты и датчики внутри неё!");
     }
