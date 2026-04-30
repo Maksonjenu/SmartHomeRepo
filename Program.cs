@@ -9,8 +9,8 @@ var builder = WebApplication.CreateBuilder(args);
 // Настройка порта и адреса через аргументы командной строки
 // Если запустить: dotnet run --urls "http://localhost:8080"
 // Или через кастомный аргумент --port (код ниже):
-var port = builder.Configuration["port"] ?? "5197"; // По умолчанию 5197
-var host = builder.Configuration["host"] ?? "localhost"; // По умолчанию localhost
+var port = builder.Configuration["port"] ?? "5000"; // По умолчанию 5197
+var host = builder.Configuration["host"] ?? "0.0.0.0"; // По умолчанию localhost
 builder.WebHost.UseUrls($"http://{host}:{port}");
 
 // Настройка пути к БД через аргументы: dotnet run --db "production.db"
