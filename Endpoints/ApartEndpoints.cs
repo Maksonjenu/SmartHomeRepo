@@ -39,30 +39,33 @@ public static partial class ApartmentEndpoints
 
     private static async Task<IResult> GetRoomsInApartment([Description("ID квартиры (НЕ номер квартиры)")] int id, AppDbContext db, ILogger<LogCategory> logger)
     {
-        var apartment = await db.Apartments
-            .Include(a => a.Rooms)
-                .ThenInclude(r => r.Info)
-            .FirstOrDefaultAsync(a => a.Id == id);
 
-        if (apartment == null)
+        if (id < 0)
+        {
+            logger.LogError("Некорректный ID квартиры: {Id}. ID должен быть положительным числом.", id);
+            return Results.BadRequest("Некорректный ID квартиры. ID должен быть положительным числом.");
+        }
+
+        var apartmentExists = await db.Apartments.AnyAsync(a => a.Id == id);
+        if (!apartmentExists)
         {
             logger.LogWarning("Квартира с ID {Id} не найдена.", id);
             return Results.NotFound($"Квартира с ID {id} не найдена.");
         }
 
-        var rooms = apartment.Rooms.Select(r => new
-        {
-            Id = r.Id,
-            Name = r.Name,
-            Description = r.Description,
-            RoomType = r.RoomType,
-            Area = r.Info?.Area ?? 0, // Если Info нет, возвращаем
-            Temperature = r.Info?.Temperature ?? 0,
-            LightState = r.Info?.LightState ?? false
-
-
-        }).ToList();
-
+        var rooms = await db.Rooms
+            .Where(r => r.ApartmentId == id)
+            .Select(r => new RoomDto
+            {
+                Id = r.Id,
+                Name = r.Name,
+                Description = r.Description,
+                RoomType = r.RoomType,
+                Area = r.Info != null ? r.Info.Area : 0, // Если Info нет, возвращаем 0
+                Temperature = r.Info != null ? r.Info.Temperature : 0,
+                LightState = r.Info != null ? r.Info.LightState : false
+            })
+            .ToListAsync();
 
         //  await db.Apartments
         //      .Include(a => a.Rooms)          // Уровень 1: Загружаем список комнат
@@ -161,8 +164,8 @@ public static partial class ApartmentEndpoints
 
         group.MapGet("/", GetAllApartments)
             .WithSummary("Список всех квартир")
-            .WithDescription("Получить список всех квартир.")
-            .Produces<List<ApartmentDto>>(StatusCodes.Status200OK); // Вот эта магия!
+            .WithDescription("Получить список всех квартир. Не содержит информации о комнатах внутри квартир, только базовую информацию о каждой квартире.")
+            .Produces<List<ApartmentDto>>(StatusCodes.Status200OK);
         ;
 
         group.MapGet("/{id}/rooms", GetRoomsInApartment)
@@ -194,5 +197,5 @@ public static partial class ApartmentEndpoints
     }
 
 
-    
+
 }
