@@ -14,6 +14,9 @@ public class LogCategory
 public static partial class ApartmentEndpoints
 {
 
+    #region Handlers
+
+    static Random random = new Random();
 
     private static async Task<IResult> GetAllApartments(AppDbContext db, ILogger<LogCategory> logger)
     {
@@ -33,6 +36,10 @@ public static partial class ApartmentEndpoints
 
         logger.LogInformation("Получено {Count} квартир из базы данных.", apartments.Count);
         logger.LogInformation("Отправляю список квартир клиенту.");
+
+
+        await Task.Delay(random.Next(0,10_000)); // Имитируем задержку для демонстрации логов
+
 
         return Results.Ok(apartments); // ОБЯЗАТЕЛЬНО возвращаем данные
     }
@@ -99,8 +106,16 @@ public static partial class ApartmentEndpoints
         db.Apartments.Add(newApartment);
         await db.SaveChangesAsync();
 
+        ApartmentDto apartmentDto = new ApartmentDto
+        {
+            Id = newApartment.Id,
+            Number = newApartment.Number,
+            Description = newApartment.Description,
+            RoomsCount = 0 // Новая квартира, комнат пока нет
+        };
+
         // 4. Ответ (возвращаем созданный объект с его новым ID)
-        return Results.Created($"/api/apartments/{newApartment.Id}", newApartment);
+        return Results.Created($"/api/apartments/{newApartment.Id}", apartmentDto);
     }
 
     private static async Task<IResult> DeleteApartment([Description("ID квартиры (НЕ номер квартиры)")] int id, AppDbContext db, ILogger<LogCategory> logger)
@@ -147,6 +162,8 @@ public static partial class ApartmentEndpoints
         return Results.Ok(apartment);
     }
 
+    #endregion
+
 }
 
 
@@ -157,44 +174,44 @@ public static partial class ApartmentEndpoints
 public static partial class ApartmentEndpoints
 {
 
+    #region Endpoint mappings
+
     public static void MapApartmentEndpoints(this IEndpointRouteBuilder routes)
     {
 
         var group = routes.MapGroup("/api/apartments").WithTags("Apartments");
 
+        // 1. Сначала получение списка (самый легкий и частый запрос)
         group.MapGet("/", GetAllApartments)
             .WithSummary("Список всех квартир")
-            .WithDescription("Получить список всех квартир. Не содержит информации о комнатах внутри квартир, только базовую информацию о каждой квартире.")
             .Produces<List<ApartmentDto>>(StatusCodes.Status200OK);
-        ;
 
-        group.MapGet("/{id}/rooms", GetRoomsInApartment)
-     .WithSummary("Комнаты в квартире со всеми датчиками")
-     .WithDescription("Получить список всех комнат в квартире по её ID. ВНИМАНИЕ: ответ содержит ВСЕ датчики внутри каждой комнаты!")
-     .Produces<List<RoomDto>>(StatusCodes.Status200OK)
-     .Produces(StatusCodes.Status404NotFound)
-     ;
-
-
+        // 2. Создание (обычно идет сразу после GET списка в документации)
         group.MapPost("/create", CreateApartment)
-    .WithSummary("Создать новую квартиру")
-    .WithDescription("Создает новую квартиру. В теле запроса должен быть JSON с полями 'number' (строка) и 'description' (строка, необязательно).")
-    .Produces<Apartment>(StatusCodes.Status201Created) // Возвращаем созданную квартиру с её ID
-    .Produces(StatusCodes.Status400BadRequest) // Если номер квартиры не указан
-    ;
+            .WithSummary("Создать новую квартиру")
+            .Produces<ApartmentDto>(StatusCodes.Status201Created)
+            .Produces(StatusCodes.Status400BadRequest);
 
+        // 3. Обновление и удаление конкретной квартиры (группируем по {id})
+        group.MapPut("/{id}", UpdateApartment)
+            .WithSummary("Обновить информацию о квартире")
+            .Produces<ApartmentDto>(StatusCodes.Status200OK) // ЗАМЕТЬ: тут заменил на Dto
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status404NotFound);
 
         group.MapDelete("/{id}", DeleteApartment)
-        .WithSummary("Удалить квартиру по ID")
-        .WithDescription("Удаляет квартиру по её ID. ВНИМАНИЕ: удаление квартиры удалит ВСЕ комнаты и датчики внутри неё!");
+            .WithSummary("Удалить квартиру по ID")
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status404NotFound);
 
-
-        group.MapPut("/{id}", UpdateApartment)
-        .WithSummary("Обновить информацию о квартире")
-        .WithDescription("Обновляет информацию о квартире по её ID. В теле запроса должен быть JSON с полями 'number' (строка) и 'description' (строка, необязательно).")
-        .Produces<Apartment>(StatusCodes.Status200OK) // Возвращаем обновленную квартиру
-        .Produces(StatusCodes.Status400BadRequest); // Если номер квартиры не указан
+        // 4. Вложенные ресурсы (идем вглубь иерархии)
+        group.MapGet("/{id}/rooms", GetRoomsInApartment)
+            .WithSummary("Комнаты в квартире со всеми датчиками")
+            .Produces<List<RoomDto>>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status404NotFound);
     }
+
+    #endregion
 
 
 

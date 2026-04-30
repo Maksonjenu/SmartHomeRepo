@@ -8,6 +8,8 @@ namespace SmartHomeRepo.Endpoints;
 public static partial class RoomEndpoints
 {
 
+    #region Handlers
+
     public static async Task<IResult> GetAllRooms(AppDbContext db, ILogger<LogCategory> logger)
     {
         if (db.Rooms == null)
@@ -76,11 +78,21 @@ public static partial class RoomEndpoints
         await db.SaveChangesAsync();
 
         logger.LogInformation("Состояние света для комнаты {Id} успешно переключено.", id);
-        return Results.Ok(info);
+
+        OutUpdateSensorDto outInfo = new OutUpdateSensorDto
+        {
+            Id = info.RoomId,
+            Area = info.Area,
+            Temperature = info.Temperature,
+            LightState = info.LightState
+        };
+
+        return Results.Ok(outInfo);
 
     }
 
-    public static async Task<IResult> UpdateRoomInfo(int id, UpdateRoomDto updateDto, AppDbContext db, ILogger<LogCategory> logger)
+    // broken
+    public static async Task<IResult> UpdateRoomSensors(int id, InUpdateSensorDto updateDto, AppDbContext db, ILogger<LogCategory> logger)
     {
         var info = await db.RoomInfos.FirstOrDefaultAsync(i => i.RoomId == id);
         if (info == null)
@@ -99,10 +111,49 @@ public static partial class RoomEndpoints
 
         await db.SaveChangesAsync();
 
+        OutUpdateSensorDto updRoom = new OutUpdateSensorDto
+        {
+            Id = info.RoomId,
+            Area = info.Area,
+            Temperature = info.Temperature,
+            LightState = info.LightState
+        };
+
         logger.LogInformation("Информация для комнаты {Id} успешно обновлена.", id);
-        return Results.Ok(info);
+        return Results.Ok(updRoom);
     }
 
+
+    public static async Task<IResult> UpdateRoomMetadata(int id, UpdateRoomMetadataDto updateDto, AppDbContext db, ILogger<LogCategory> logger)
+    {
+        var room = await db.Rooms.FindAsync(id);
+        if (room == null)
+        {
+            logger.LogWarning("Комната с ID {Id} не найдена для обновления.", id);
+            return Results.NotFound($"Комната с ID {id} не найдена.");
+        }
+
+        // Обновляем только те поля, которые были переданы в DTO
+        if (!string.IsNullOrWhiteSpace(updateDto.Name))
+            room.Name = updateDto.Name;
+        if (!string.IsNullOrWhiteSpace(updateDto.Description))
+            room.Description = updateDto.Description;
+        if (!string.IsNullOrWhiteSpace(updateDto.RoomType))
+            room.RoomType = updateDto.RoomType;
+
+        await db.SaveChangesAsync();
+
+        UpdateRoomMetadataDto updRoom = new UpdateRoomMetadataDto
+        {
+            Id = room.Id,
+            Name = room.Name,
+            Description = room.Description,
+            RoomType = room.RoomType
+        };
+
+        logger.LogInformation("Комната с ID {Id} успешно обновлена.", id);
+        return Results.Ok(updRoom);
+    }
     public static async Task<IResult> DeleteRoom(int id, AppDbContext db, ILogger<LogCategory> logger)
     {
         if (id < 0)
@@ -177,6 +228,7 @@ public static partial class RoomEndpoints
         return Results.Created($"/api/rooms/{newRoom.Id}", flatRoomDto);
     }
 
+    #endregion
 
 
 }
@@ -184,6 +236,8 @@ public static partial class RoomEndpoints
 
 public static partial class RoomEndpoints
 {
+    #region Endpoint mappings
+
     public static void MapRoomEndpoints(this IEndpointRouteBuilder routes)
     {
         var group = routes.MapGroup("/api/rooms").WithTags("Rooms");
@@ -210,28 +264,43 @@ public static partial class RoomEndpoints
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status500InternalServerError);
 
-        group.MapPatch("/{id}", UpdateRoomInfo)
+        group.MapPatch("/{id}/sensors", UpdateRoomSensors)
             .WithSummary("Обновить информацию о комнате")
             .WithDescription("Обновить информацию о комнате по её ID (НЕ номеру квартиры). Можно обновлять площадь, температуру и состояние света.")
-            .Produces<RoomInfo>(StatusCodes.Status200OK)
+            .Produces<OutUpdateSensorDto>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status404NotFound)
-            .Produces(StatusCodes.Status500InternalServerError);
+            .Produces(StatusCodes.Status500InternalServerError)
+            .Accepts<InUpdateSensorDto>("application/json")
+            ;
+
+            group.MapPatch("/{id}/info", UpdateRoomMetadata)
+            .WithSummary("Обновить комнату")
+            .WithDescription("Обновить название, описание и тип комнаты по её ID (НЕ номеру квартиры).")
+            .Produces<RoomDto>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status500InternalServerError)
+            .Accepts<UpdateRoomMetadataDto>("application/json");
 
         group.MapPatch("/{id}/light", TurnLight)
             .WithSummary("Переключить свет в комнате")
             .WithDescription("Переключить состояние света в комнате по её ID (НЕ номеру квартиры).")
-            .Produces<RoomInfo>(StatusCodes.Status200OK)
+            .Produces<OutUpdateSensorDto>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status404NotFound)
-            .Produces(StatusCodes.Status500InternalServerError);
+            .Produces(StatusCodes.Status500InternalServerError)
+            .Accepts<int>("application/json")
+            ;
 
 
         group.MapDelete("/{id}", DeleteRoom)
             .WithSummary("Удалить комнату")
             .WithDescription("Удалить комнату по её ID (НЕ номеру квартиры).")
-            .Produces(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status500InternalServerError);
     }
+
+    #endregion
 
 
 
