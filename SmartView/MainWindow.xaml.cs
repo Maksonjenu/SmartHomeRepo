@@ -16,9 +16,11 @@ namespace SmartView
     /// </summary>
     public partial class MainWindow : Window
     {
-        public MainWindow()
+        // Контейнер сам вставит сюда MainViewModel при создании окна!
+        public MainWindow(MainViewModel viewModel)
         {
             InitializeComponent();
+            DataContext = viewModel; // Привязываем UI к ViewModel
         }
     }
 }

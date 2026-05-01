@@ -1,7 +1,7 @@
 using System.ComponentModel;
 
 
-namespace SmartHomeRepo.DTO;
+namespace SmartHome.Core.DTO;
 
 /// <summary>
 /// DTO для передачи информации о комнате без вложенных данных. Содержит только базовые свойства комнаты, без информации о площади, температуре и состоянии света.

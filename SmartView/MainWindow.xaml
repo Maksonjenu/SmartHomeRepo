@@ -5,8 +5,12 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:SmartView"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
-    <Grid>
+        Title="MainWindow" Height="450" Width="300">
+    <StackPanel>
 
-    </Grid>
+        <Button Height="25" Width="100" Command="{Binding LoadApartmentsAsync}"/>
+
+        <DataGrid ItemsSource="{Binding Apartments}" AutoGenerateColumns="True"/>
+
+        </StackPanel>
 </Window>

@@ -1,0 +1,16 @@
+﻿<Window x:Class="SmartView.SimpleDemo"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Демо для студентов" Height="450" Width="400">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <Button x:Name="LoadBtn" Grid.Row="0" Content="Скачать квартиры" Height="40" Click="LoadBtn_Click"/>
+
+        <!-- DisplayMemberPath="Number" значит, что в списке покажется поле Number из твоего DTO -->
+        <DataGrid x:Name="ApartmentsList" Grid.Row="1" DisplayMemberPath="Number" Margin="0,10,0,0" AutoGenerateColumns="True"/>
+    </Grid>
+</Window>

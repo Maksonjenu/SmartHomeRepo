@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SmartHomeRepo.Entitys;
-using SmartHomeRepo.DTO;
+using SmartHome.Core.DTO;
 using SmartHomeRepo.Models.Interfaces;
 
 namespace SmartHomeRepo.Endpoints;
