@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SmartHomeRepo.Entitys;
 using SmartHomeRepo.DTO;
+using SmartHomeRepo.Models.Interfaces;
 
 namespace SmartHomeRepo.Endpoints;
 
@@ -10,8 +11,14 @@ public static partial class RoomEndpoints
 
     #region Handlers
 
-    public static async Task<IResult> GetAllRooms(AppDbContext db, ILogger<LogCategory> logger)
+    public static async Task<IResult> GetAllRooms(AppDbContext db, ILogger<LogCategory> logger, INetworkSimulator network)
     {
+        if (await network.TryGetRandomErrorAsync() == Results.StatusCode(StatusCodes.Status500InternalServerError)) // Имитируем нестабильную сеть (может добавить задержку или вернуть ошибку)
+        {
+            logger.LogError("Внутренняя ошибка при попытке получить список комнат.");
+            return Results.StatusCode(StatusCodes.Status500InternalServerError);
+        }
+
         if (db.Rooms == null)
         {
             logger.LogError("Ошибка доступа к базе данных: таблица Rooms не найдена.");
@@ -27,14 +34,21 @@ public static partial class RoomEndpoints
             ApartmentId = r.ApartmentId
         }).ToListAsync();
 
+        rooms = network.MessWithData(rooms); // Имитируем порчу данных (может очистить список или занулить поля)
+
         logger.LogInformation("Получено {Count} комнат из базы данных.", rooms.Count);
         logger.LogInformation("Отправляю список комнат клиенту.");
 
         return Results.Ok(rooms); // ОБЯЗАТЕЛЬНО возвращаем данные
     }
 
-    public static async Task<IResult> GetRoomInfo(int id, AppDbContext db, ILogger<LogCategory> logger)
+    public static async Task<IResult> GetRoomInfo(int id, AppDbContext db, ILogger<LogCategory> logger, INetworkSimulator network)
     {
+        if (await network.TryGetRandomErrorAsync() == Results.StatusCode(StatusCodes.Status500InternalServerError)) // Имитируем нестабильную сеть (может добавить задержку или вернуть ошибку)
+        {
+            logger.LogError("Внутренняя ошибка при попытке получить информацию о комнате. ID: {Id}", id);
+            return Results.StatusCode(StatusCodes.Status500InternalServerError);
+        }
         if (id < 0)
         {
             logger.LogError("Некорректный ID комнаты: {Id}. ID должен быть положительным числом.", id);
@@ -64,8 +78,13 @@ public static partial class RoomEndpoints
         return Results.Ok(room);
     }
 
-    public static async Task<IResult> TurnLight(int id, AppDbContext db, ILogger<LogCategory> logger)
+    public static async Task<IResult> TurnLight(int id, AppDbContext db, ILogger<LogCategory> logger, INetworkSimulator network)
     {
+        if (await network.TryGetRandomErrorAsync() == Results.StatusCode(StatusCodes.Status500InternalServerError)) // Имитируем нестабильную сеть (может добавить задержку или вернуть ошибку)
+        {
+            logger.LogError("Внутренняя ошибка при попытке переключить свет в комнате. ID: {Id}", id);
+            return Results.StatusCode(StatusCodes.Status500InternalServerError);
+        }
         var info = await db.RoomInfos.FirstOrDefaultAsync(i => i.RoomId == id);
         if (info == null)
         {
@@ -92,14 +111,20 @@ public static partial class RoomEndpoints
     }
 
     // broken
-    public static async Task<IResult> UpdateRoomSensors(int id, InUpdateSensorDto updateDto, AppDbContext db, ILogger<LogCategory> logger)
+    public static async Task<IResult> UpdateRoomSensors(int id, InUpdateSensorDto updateDto, AppDbContext db, ILogger<LogCategory> logger, INetworkSimulator network)
     {
+        if (await network.TryGetRandomErrorAsync() == Results.StatusCode(StatusCodes.Status500InternalServerError)) // Имитируем нестабильную сеть (может добавить задержку или вернуть ошибку)
+        {
+            logger.LogError("Внутренняя ошибка при попытке обновить сенсоры комнаты. Данные: {@UpdateDto}", updateDto);
+            return Results.StatusCode(StatusCodes.Status500InternalServerError);
+        }
         var info = await db.RoomInfos.FirstOrDefaultAsync(i => i.RoomId == id);
         if (info == null)
         {
             logger.LogWarning("Информация для комнаты с ID {Id} не найдена.", id);
             return Results.NotFound($"Информация для комнаты с ID {id} не найдена.");
         }
+
 
         // Обновляем только те поля, которые были переданы в DTO
         if (updateDto.Area.HasValue)
@@ -124,8 +149,13 @@ public static partial class RoomEndpoints
     }
 
 
-    public static async Task<IResult> UpdateRoomMetadata(int id, UpdateRoomMetadataDto updateDto, AppDbContext db, ILogger<LogCategory> logger)
+    public static async Task<IResult> UpdateRoomMetadata(int id, InUpdateRoomMetadataDto updateDto, AppDbContext db, ILogger<LogCategory> logger, INetworkSimulator network)
     {
+        if (await network.TryGetRandomErrorAsync() == Results.StatusCode(StatusCodes.Status500InternalServerError)) // Имитируем нестабильную сеть (может добавить задержку или вернуть ошибку)
+        {
+            logger.LogError("Внутренняя ошибка при попытке обновить метаданные комнаты. Данные: {@UpdateDto}", updateDto);
+            return Results.StatusCode(StatusCodes.Status500InternalServerError);
+        }
         var room = await db.Rooms.FindAsync(id);
         if (room == null)
         {
@@ -143,7 +173,7 @@ public static partial class RoomEndpoints
 
         await db.SaveChangesAsync();
 
-        UpdateRoomMetadataDto updRoom = new UpdateRoomMetadataDto
+        OutUpdateRoomMetadataDto updRoom = new OutUpdateRoomMetadataDto
         {
             Id = room.Id,
             Name = room.Name,
@@ -154,8 +184,15 @@ public static partial class RoomEndpoints
         logger.LogInformation("Комната с ID {Id} успешно обновлена.", id);
         return Results.Ok(updRoom);
     }
-    public static async Task<IResult> DeleteRoom(int id, AppDbContext db, ILogger<LogCategory> logger)
+    public static async Task<IResult> DeleteRoom(int id, AppDbContext db, ILogger<LogCategory> logger, INetworkSimulator network)
     {
+        if (await network.TryGetRandomErrorAsync() == Results.StatusCode(StatusCodes.Status500InternalServerError)) // Имитируем нестабильную сеть (может добавить задержку или вернуть ошибку)
+        {
+            logger.LogError("Сетевая ошибка при попытке удалить комнату с ID {Id}.", id);
+            return Results.StatusCode(StatusCodes.Status500InternalServerError);
+        }
+        // Имитируем нестабильную сеть (может добавить задержку или вернуть ошибку)
+
         if (id < 0)
         {
             logger.LogError("Некорректный ID комнаты: {Id}. ID должен быть положительным числом.", id);
@@ -178,8 +215,13 @@ public static partial class RoomEndpoints
     }
 
 
-    public static async Task<IResult> CreateRoom(CreateRoomDto createDto, AppDbContext db, ILogger<LogCategory> logger)
+    public static async Task<IResult> CreateRoom(CreateRoomDto createDto, AppDbContext db, ILogger<LogCategory> logger, INetworkSimulator network)
     {
+        if (await network.TryGetRandomErrorAsync() == Results.StatusCode(StatusCodes.Status500InternalServerError)) // Имитируем нестабильную сеть (может добавить задержку или вернуть ошибку)
+        {
+            logger.LogError("Внутренняя ошибка при попытке создать комнату. Данные: {@CreateDto}", createDto);
+            return Results.StatusCode(StatusCodes.Status500InternalServerError);
+        }
         // Валидация входных данных
         if (string.IsNullOrWhiteSpace(createDto.Name))
             return Results.BadRequest("Название комнаты обязательно.");
@@ -242,7 +284,13 @@ public static partial class RoomEndpoints
     {
         var group = routes.MapGroup("/api/rooms").WithTags("Rooms");
 
-        group.MapPost("/create", CreateRoom)
+        group.MapGet("/", GetAllRooms)
+            .WithSummary("Список комнат")
+            .WithDescription("Получить список всех комнат во всех квартирах. Название, описание, тип комнаты и Id квартиры.")
+            .Produces<List<FlatRoomDto>>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status500InternalServerError);
+
+        group.MapPost("/", CreateRoom)
                     .WithSummary("Создать комнату")
                     .WithDescription("Создать новую комнату в квартире. Необходимо указать название, описание, тип комнаты и ID квартиры.")
                     .Produces<FlatRoomDto>(StatusCodes.Status201Created)
@@ -251,36 +299,33 @@ public static partial class RoomEndpoints
                     .Accepts<CreateRoomDto>("application/json")
                     ;
 
-        group.MapGet("/", GetAllRooms)
-            .WithSummary("Список комнат")
-            .WithDescription("Получить список всех комнат во всех квартирах. Название, описание, тип комнаты и Id квартиры.")
-            .Produces<List<FlatRoomDto>>(StatusCodes.Status200OK)
-            .Produces(StatusCodes.Status500InternalServerError);
 
-        group.MapGet("/{id}/info", GetRoomInfo)
+        group.MapGet("/{id}", GetRoomInfo)
             .WithSummary("Датчики комнаты")
-            .WithDescription("Получить информацию о комнате по её ID (НЕ номеру квартиры). Включает в себя площадь, температуру и состояние света.")
+            .WithDescription("Получить информацию о комнате по её ID (НЕ номеру квартиры). Включает в себя площадь, температуру, состояние света, название и описание.")
             .Produces<RoomDto>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status500InternalServerError);
+
+
+
+        group.MapPatch("/{id}", UpdateRoomMetadata)
+        .WithSummary("Обновить комнату")
+        .WithDescription("Обновить название, описание и тип комнаты по её ID (НЕ номеру квартиры).")
+        .Produces<OutUpdateRoomMetadataDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound)
+        .Produces(StatusCodes.Status500InternalServerError)
+        .Accepts<InUpdateRoomMetadataDto>("application/json");
 
         group.MapPatch("/{id}/sensors", UpdateRoomSensors)
-            .WithSummary("Обновить информацию о комнате")
-            .WithDescription("Обновить информацию о комнате по её ID (НЕ номеру квартиры). Можно обновлять площадь, температуру и состояние света.")
-            .Produces<OutUpdateSensorDto>(StatusCodes.Status200OK)
-            .Produces(StatusCodes.Status404NotFound)
-            .Produces(StatusCodes.Status500InternalServerError)
-            .Accepts<InUpdateSensorDto>("application/json")
-            ;
-
-            group.MapPatch("/{id}/info", UpdateRoomMetadata)
-            .WithSummary("Обновить комнату")
-            .WithDescription("Обновить название, описание и тип комнаты по её ID (НЕ номеру квартиры).")
-            .Produces<RoomDto>(StatusCodes.Status200OK)
-            .Produces(StatusCodes.Status400BadRequest)
-            .Produces(StatusCodes.Status404NotFound)
-            .Produces(StatusCodes.Status500InternalServerError)
-            .Accepts<UpdateRoomMetadataDto>("application/json");
+                    .WithSummary("Обновить информацию о комнате")
+                    .WithDescription("Обновить информацию о комнате по её ID (НЕ номеру квартиры). Можно обновлять площадь, температуру и состояние света.")
+                    .Produces<OutUpdateSensorDto>(StatusCodes.Status200OK)
+                    .Produces(StatusCodes.Status404NotFound)
+                .Produces(StatusCodes.Status500InternalServerError)
+                    .Accepts<InUpdateSensorDto>("application/json")
+                    ;
 
         group.MapPatch("/{id}/light", TurnLight)
             .WithSummary("Переключить свет в комнате")
@@ -288,8 +333,9 @@ public static partial class RoomEndpoints
             .Produces<OutUpdateSensorDto>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status500InternalServerError)
-            .Accepts<int>("application/json")
             ;
+
+
 
 
         group.MapDelete("/{id}", DeleteRoom)

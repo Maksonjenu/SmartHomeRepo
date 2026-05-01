@@ -1,10 +1,24 @@
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using SmartHomeRepo.Endpoints;
+using SmartHomeRepo.Models.Interfaces;
 
 // 1. ПАРСИНГ АРГУМЕНТОВ
 // Мы можем передавать: --urls "http://0.0.0.0:5000" или свои параметры типа --db "my.db"
 var builder = WebApplication.CreateBuilder(args);
+
+bool enablePranks = args.Contains("--enable-network") || 
+                    builder.Configuration.GetValue<bool>("EnablePranks");
+
+if (enablePranks)
+{
+    builder.Services.AddSingleton<INetworkSimulator, RealNetwork>();
+}
+else
+{
+    builder.Services.AddSingleton<INetworkSimulator, DebugNetwork>();
+}
+
 
 // Настройка порта и адреса через аргументы командной строки
 // Если запустить: dotnet run --urls "http://localhost:8080"

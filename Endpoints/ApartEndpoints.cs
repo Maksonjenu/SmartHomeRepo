@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc.ApiExplorer;
 using Microsoft.EntityFrameworkCore;
 using SmartHomeRepo.Entitys;
 using SmartHomeRepo.DTO;
+using SmartHomeRepo.Models.Interfaces;
 
 namespace SmartHomeRepo.Endpoints;
 
@@ -18,8 +19,13 @@ public static partial class ApartmentEndpoints
 
     static Random random = new Random();
 
-    private static async Task<IResult> GetAllApartments(AppDbContext db, ILogger<LogCategory> logger)
+    private static async Task<IResult> GetAllApartments(AppDbContext db, ILogger<LogCategory> logger, INetworkSimulator network)
     {
+        if (await network.TryGetRandomErrorAsync() == Results.StatusCode(StatusCodes.Status500InternalServerError)) // Имитируем нестабильную сеть (может добавить задержку или вернуть ошибку)
+        {
+            logger.LogError("Внутренняя ошибка при попытке получить список квартир.");
+            return Results.StatusCode(StatusCodes.Status500InternalServerError);
+        }
         if (db.Apartments == null)
         {
             logger.LogError("Ошибка доступа к базе данных: таблица Apartments не найдена.");
@@ -38,14 +44,18 @@ public static partial class ApartmentEndpoints
         logger.LogInformation("Отправляю список квартир клиенту.");
 
 
-        await Task.Delay(random.Next(0,10_000)); // Имитируем задержку для демонстрации логов
-
+        apartments = network.MessWithData(apartments); // Имитируем порчу данных (может очистить список или занулить поля)
 
         return Results.Ok(apartments); // ОБЯЗАТЕЛЬНО возвращаем данные
     }
 
-    private static async Task<IResult> GetRoomsInApartment([Description("ID квартиры (НЕ номер квартиры)")] int id, AppDbContext db, ILogger<LogCategory> logger)
+    private static async Task<IResult> GetRoomsInApartment([Description("ID квартиры (НЕ номер квартиры)")] int id, AppDbContext db, ILogger<LogCategory> logger, INetworkSimulator network)
     {
+        if (await network.TryGetRandomErrorAsync() == Results.StatusCode(StatusCodes.Status500InternalServerError)) // Имитируем нестабильную сеть (может добавить задержку или вернуть ошибку)
+        {
+            logger.LogError("Внутренняя ошибка при попытке получить список комнат для квартиры. ID: {Id}", id);
+            return Results.StatusCode(StatusCodes.Status500InternalServerError);
+        }
 
         if (id < 0)
         {
@@ -81,12 +91,20 @@ public static partial class ApartmentEndpoints
         //          is { } apt ? return Results.Ok(apt.Rooms) : Results.NotFound()
 
 
+        rooms = network.MessWithData(rooms); // Имитируем порчу данных (может очистить список или занулить поля)
+
         logger.LogInformation("Получено {Count} комнат для квартиры ID {Id}.", rooms.Count, id);
         return Results.Ok(rooms);
     }
 
-    private static async Task<IResult> CreateApartment([Description("Объект для создания квартиры, внутри строки номера и названия квартиры.")] CreateApartmentRequest req, AppDbContext db, ILogger<LogCategory> logger)
+    private static async Task<IResult> CreateApartment([Description("Объект для создания квартиры, внутри строки номера и названия квартиры.")] WriteApartmentDto req, AppDbContext db, ILogger<LogCategory> logger, INetworkSimulator network)
     {
+        if (await network.TryGetRandomErrorAsync() == Results.StatusCode(StatusCodes.Status500InternalServerError)) // Имитируем нестабильную сеть (может добавить задержку или вернуть ошибку)
+        {
+            logger.LogError("Внутренняя ошибка при попытке создать квартиру. Данные: {@CreateDto}", req);
+            return Results.StatusCode(StatusCodes.Status500InternalServerError);
+        }
+
         // 1. Валидация (минимально, чтобы GUI не слал мусор)
         if (string.IsNullOrWhiteSpace(req.Number))
             return Results.BadRequest("Номер квартиры обязателен");
@@ -114,12 +132,20 @@ public static partial class ApartmentEndpoints
             RoomsCount = 0 // Новая квартира, комнат пока нет
         };
 
+        apartmentDto = network.MessWithData(new List<ApartmentDto> { apartmentDto }).First(); // Имитируем порчу данных (может занулить поля)
+
         // 4. Ответ (возвращаем созданный объект с его новым ID)
         return Results.Created($"/api/apartments/{newApartment.Id}", apartmentDto);
     }
 
-    private static async Task<IResult> DeleteApartment([Description("ID квартиры (НЕ номер квартиры)")] int id, AppDbContext db, ILogger<LogCategory> logger)
+    private static async Task<IResult> DeleteApartment([Description("ID квартиры (НЕ номер квартиры)")] int id, AppDbContext db, ILogger<LogCategory> logger, INetworkSimulator network)
     {
+        if (await network.TryGetRandomErrorAsync() == Results.StatusCode(StatusCodes.Status500InternalServerError)) // Имитируем нестабильную сеть (может добавить задержку или вернуть ошибку)
+        {
+            logger.LogError("Внутренняя ошибка при попытке удалить квартиру. ID: {Id}", id);
+            return Results.StatusCode(StatusCodes.Status500InternalServerError);
+        }
+
         var apt = await db.Apartments.FindAsync(id);
         if (apt == null)
         {
@@ -133,8 +159,14 @@ public static partial class ApartmentEndpoints
         return Results.NoContent();
     }
 
-    private static async Task<IResult> UpdateApartment([Description("ID квартиры (НЕ номер квартиры)")] int id, CreateApartmentRequest req, AppDbContext db, ILogger<LogCategory> logger)
+    private static async Task<IResult> UpdateApartment([Description("ID квартиры (НЕ номер квартиры)")] int id, WriteApartmentDto req, AppDbContext db, ILogger<LogCategory> logger, INetworkSimulator network)
     {
+        if (await network.TryGetRandomErrorAsync() == Results.StatusCode(StatusCodes.Status500InternalServerError)) // Имитируем нестабильную сеть (может добавить задержку или вернуть ошибку)
+        {
+            logger.LogError("Внутренняя ошибка при попытке обновить квартиру. ID: {Id}", id);
+            return Results.StatusCode(StatusCodes.Status500InternalServerError);
+        }
+
         // Попытка найти квартиру по ID
         var apartment = await db.Apartments.FindAsync(id);
         if (apartment == null)
@@ -184,31 +216,48 @@ public static partial class ApartmentEndpoints
         // 1. Сначала получение списка (самый легкий и частый запрос)
         group.MapGet("/", GetAllApartments)
             .WithSummary("Список всех квартир")
-            .Produces<List<ApartmentDto>>(StatusCodes.Status200OK);
+            .WithDescription("Получить список всех квартир. В ответе возвращается массив объектов, каждый из которых содержит ID, номер, описание и количество комнат в квартире.")
+            .Produces<List<ApartmentDto>>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status500InternalServerError)
+            ;
 
         // 2. Создание (обычно идет сразу после GET списка в документации)
-        group.MapPost("/create", CreateApartment)
+        group.MapPost("/", CreateApartment)
             .WithSummary("Создать новую квартиру")
+            .WithDescription("Создать новую квартиру с указанным номером и описанием. Номер квартиры должен быть уникальным. В ответе возвращается созданная квартира с её новым ID.")
+            .Accepts<WriteApartmentDto>("application/json") // Указываем, что ожидаем JSON с полями для создания квартиры
             .Produces<ApartmentDto>(StatusCodes.Status201Created)
-            .Produces(StatusCodes.Status400BadRequest);
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status500InternalServerError)
+            ;
 
         // 3. Обновление и удаление конкретной квартиры (группируем по {id})
         group.MapPut("/{id}", UpdateApartment)
             .WithSummary("Обновить информацию о квартире")
+            .WithDescription("Обновить информацию о квартире по ее ID. Если квартира с указанным ID не найдена, возвращается 404 Not Found.")
+            .Accepts<WriteApartmentDto>("application/json") // Указываем, что ожидаем JSON с полями для обновления квартиры
             .Produces<ApartmentDto>(StatusCodes.Status200OK) // ЗАМЕТЬ: тут заменил на Dto
             .Produces(StatusCodes.Status400BadRequest)
-            .Produces(StatusCodes.Status404NotFound);
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status500InternalServerError)
+            ;
 
         group.MapDelete("/{id}", DeleteApartment)
             .WithSummary("Удалить квартиру по ID")
+            .WithDescription("Удалить квартиру по ее ID. Если квартира с указанным ID не найдена, возвращается 404 Not Found.")
             .Produces(StatusCodes.Status204NoContent)
-            .Produces(StatusCodes.Status404NotFound);
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status500InternalServerError)
+            ;
 
         // 4. Вложенные ресурсы (идем вглубь иерархии)
         group.MapGet("/{id}/rooms", GetRoomsInApartment)
             .WithSummary("Комнаты в квартире со всеми датчиками")
+            .WithDescription("Получить список всех комнат в квартире по ID квартиры. В ответе возвращается подробная информация о каждой комнате, включая площадь, температуру и состояние света. Если квартира с указанным ID не найдена, возвращается 404 Not Found.")
             .Produces<List<RoomDto>>(StatusCodes.Status200OK)
-            .Produces(StatusCodes.Status404NotFound);
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status500InternalServerError)
+            ;
     }
 
     #endregion
