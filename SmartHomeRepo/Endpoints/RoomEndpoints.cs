@@ -376,14 +376,6 @@ public static partial class RoomEndpoints
                     .Accepts<InUpdateSensorDto>("application/json")
                     ;
 
-        group.MapPatch("/{id}/info", UpdateRoomMetadata)
-        .WithSummary("Обновить комнату")
-        .WithDescription("Обновить название, описание и тип комнаты по её ID (НЕ номеру квартиры).")
-        .Produces<RoomDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status404NotFound)
-        .Produces(StatusCodes.Status500InternalServerError)
-        .Accepts<UpdateRoomMetadataDto>("application/json");
 
         group.MapPatch("/{id}/light", TurnLight)
             .WithSummary("Переключить свет в комнате")
