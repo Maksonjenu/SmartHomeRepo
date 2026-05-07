@@ -80,6 +80,8 @@ public static partial class RoomEndpoints
 
     public static async Task<IResult> TurnLight(int id, AppDbContext db, ILogger<LogCategory> logger, INetworkSimulator network)
     {
+        logger.LogInformation("Пользователь отправил запрос на вкл\\выкл света.");
+
         if (await network.TryGetRandomErrorAsync() == Results.StatusCode(StatusCodes.Status500InternalServerError)) // Имитируем нестабильную сеть (может добавить задержку или вернуть ошибку)
         {
             logger.LogError("Внутренняя ошибка при попытке переключить свет в комнате. ID: {Id}", id);
@@ -88,7 +90,7 @@ public static partial class RoomEndpoints
         var info = await db.RoomInfos.FirstOrDefaultAsync(i => i.RoomId == id);
         if (info == null)
         {
-            logger.LogWarning("Информация для комнаты с ID {Id} не найдена.", id);
+            logger.LogError("Информация для комнаты с ID {Id} не найдена.", id);
             return Results.NotFound($"Информация для комнаты с ID {id} не найдена.");
         }
 
@@ -98,21 +100,23 @@ public static partial class RoomEndpoints
 
         logger.LogInformation("Состояние света для комнаты {Id} успешно переключено.", id);
 
-        OutUpdateSensorDto outInfo = new OutUpdateSensorDto
-        {
-            Id = info.RoomId,
-            Area = info.Area,
-            Temperature = info.Temperature,
-            LightState = info.LightState
-        };
+        // OutUpdateSensorDto outInfo = new OutUpdateSensorDto
+        // {
+        //     Id = info.RoomId,
+        //     Area = info.Area,
+        //     Temperature = info.Temperature,
+        //     LightState = info.LightState
+        // };
 
-        return Results.Ok(outInfo);
+        return Results.Ok(info.LightState);
 
     }
 
     // broken
     public static async Task<IResult> UpdateRoomSensors(int id, InUpdateSensorDto updateDto, AppDbContext db, ILogger<LogCategory> logger, INetworkSimulator network)
     {
+        logger.LogInformation("Пользователь отправил запрос на обновление сенсоров в комнате");
+
         if (await network.TryGetRandomErrorAsync() == Results.StatusCode(StatusCodes.Status500InternalServerError)) // Имитируем нестабильную сеть (может добавить задержку или вернуть ошибку)
         {
             logger.LogError("Внутренняя ошибка при попытке обновить сенсоры комнаты. Данные: {@UpdateDto}", updateDto);
@@ -121,18 +125,28 @@ public static partial class RoomEndpoints
         var info = await db.RoomInfos.FirstOrDefaultAsync(i => i.RoomId == id);
         if (info == null)
         {
-            logger.LogWarning("Информация для комнаты с ID {Id} не найдена.", id);
+            logger.LogError("Информация для комнаты с ID {Id} не найдена.", id);
             return Results.NotFound($"Информация для комнаты с ID {id} не найдена.");
         }
 
 
         // Обновляем только те поля, которые были переданы в DTO
         if (updateDto.Area.HasValue)
+        {
+            logger.LogInformation("Была обновлена площадь.");
+
             info.Area = updateDto.Area.Value;
+        }
         if (updateDto.Temperature.HasValue)
+        {
+            logger.LogInformation("Была обновлена температура.");
             info.Temperature = updateDto.Temperature.Value;
+        }
         if (updateDto.LightState.HasValue)
+        {
+            logger.LogInformation("Было обновлено состояние света.");
             info.LightState = updateDto.LightState.Value;
+        }
 
         await db.SaveChangesAsync();
 
@@ -151,6 +165,7 @@ public static partial class RoomEndpoints
 
     public static async Task<IResult> UpdateRoomMetadata(int id, InUpdateRoomMetadataDto updateDto, AppDbContext db, ILogger<LogCategory> logger, INetworkSimulator network)
     {
+        logger.LogInformation("Пользователь отправил запрос на обновление метаданных в комнате");
         if (await network.TryGetRandomErrorAsync() == Results.StatusCode(StatusCodes.Status500InternalServerError)) // Имитируем нестабильную сеть (может добавить задержку или вернуть ошибку)
         {
             logger.LogError("Внутренняя ошибка при попытке обновить метаданные комнаты. Данные: {@UpdateDto}", updateDto);
@@ -159,17 +174,26 @@ public static partial class RoomEndpoints
         var room = await db.Rooms.FindAsync(id);
         if (room == null)
         {
-            logger.LogWarning("Комната с ID {Id} не найдена для обновления.", id);
+            logger.LogError("Комната с ID {Id} не найдена для обновления.", id);
             return Results.NotFound($"Комната с ID {id} не найдена.");
         }
 
         // Обновляем только те поля, которые были переданы в DTO
         if (!string.IsNullOrWhiteSpace(updateDto.Name))
+        {
             room.Name = updateDto.Name;
+            logger.LogInformation("Было обновлено имя комнаты.");
+        }
         if (!string.IsNullOrWhiteSpace(updateDto.Description))
+        {
             room.Description = updateDto.Description;
+            logger.LogInformation("Было обновлено описание комнаты.");
+        }
         if (!string.IsNullOrWhiteSpace(updateDto.RoomType))
+        {
             room.RoomType = updateDto.RoomType;
+            logger.LogInformation("Был обновлен тип комнаты.");
+        }
 
         await db.SaveChangesAsync();
 
@@ -186,6 +210,8 @@ public static partial class RoomEndpoints
     }
     public static async Task<IResult> DeleteRoom(int id, AppDbContext db, ILogger<LogCategory> logger, INetworkSimulator network)
     {
+        logger.LogInformation("Пользователь отправил запрос на удаление комнаты.");
+
         if (await network.TryGetRandomErrorAsync() == Results.StatusCode(StatusCodes.Status500InternalServerError)) // Имитируем нестабильную сеть (может добавить задержку или вернуть ошибку)
         {
             logger.LogError("Сетевая ошибка при попытке удалить комнату с ID {Id}.", id);
@@ -217,6 +243,7 @@ public static partial class RoomEndpoints
 
     public static async Task<IResult> CreateRoom(CreateRoomDto createDto, AppDbContext db, ILogger<LogCategory> logger, INetworkSimulator network)
     {
+        logger.LogInformation("Пользователь отправил запрос на создание новой комнаты.");
         if (await network.TryGetRandomErrorAsync() == Results.StatusCode(StatusCodes.Status500InternalServerError)) // Имитируем нестабильную сеть (может добавить задержку или вернуть ошибку)
         {
             logger.LogError("Внутренняя ошибка при попытке создать комнату. Данные: {@CreateDto}", createDto);
@@ -224,20 +251,42 @@ public static partial class RoomEndpoints
         }
         // Валидация входных данных
         if (string.IsNullOrWhiteSpace(createDto.Name))
+        {
+            logger.LogError("В запросе от пользователя не было названия комнаты.");
             return Results.BadRequest("Название комнаты обязательно.");
+        }
         if (string.IsNullOrWhiteSpace(createDto.Description))
+        {
+            logger.LogError("В запросе от пользователя не было описания комнаты.");
             return Results.BadRequest("Описание комнаты обязательно.");
+        }
         if (string.IsNullOrWhiteSpace(createDto.RoomType))
+        {
+            logger.LogError("В запросе от пользователя не было типа комнаты.");
             return Results.BadRequest("Тип комнаты обязателен.");
+        }
         if (createDto.Area <= 0)
+        {
+            logger.LogError("В запросе от пользователя была отрицательная площадь.");
             return Results.BadRequest("Площадь комнаты должна быть положительным числом.");
+        }
         if (createDto.Temperature < -50 || createDto.Temperature > 50)
+        {
+            logger.LogError("В запросе от пользователя температура была вне допустимого диапазона.");
             return Results.BadRequest("Температура должна быть в диапазоне от -50 до 50 градусов Цельсия.");
+        }
+
+        logger.LogInformation("Проверка тела запроса пройдена, все поля присутствуют.");
 
         // Проверяем существование квартиры
         var apartmentExists = await db.Apartments.AnyAsync(a => a.Id == createDto.ApartmentId);
         if (!apartmentExists)
+        {
+            logger.LogError($"Квартира с ID {createDto.ApartmentId} не найдена.");
             return Results.BadRequest($"Квартира с ID {createDto.ApartmentId} не найдена.");
+        }
+
+        logger.LogInformation($"Квартира с ID {createDto.ApartmentId} найдена.");
 
         // Создаем новую комнату
         var newRoom = new Room
@@ -327,10 +376,19 @@ public static partial class RoomEndpoints
                     .Accepts<InUpdateSensorDto>("application/json")
                     ;
 
+        group.MapPatch("/{id}/info", UpdateRoomMetadata)
+        .WithSummary("Обновить комнату")
+        .WithDescription("Обновить название, описание и тип комнаты по её ID (НЕ номеру квартиры).")
+        .Produces<RoomDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound)
+        .Produces(StatusCodes.Status500InternalServerError)
+        .Accepts<UpdateRoomMetadataDto>("application/json");
+
         group.MapPatch("/{id}/light", TurnLight)
             .WithSummary("Переключить свет в комнате")
             .WithDescription("Переключить состояние света в комнате по её ID (НЕ номеру квартиры).")
-            .Produces<OutUpdateSensorDto>(StatusCodes.Status200OK)
+            .Produces<bool>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status500InternalServerError)
             ;
