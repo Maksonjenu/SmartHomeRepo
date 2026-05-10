@@ -73,9 +73,10 @@ using (var scope = app.Services.CreateScope())
 }
 
 // Настройка Swagger
-if (app.Environment.IsDevelopment())
+var enableSwagger = app.Environment.IsDevelopment() || builder.Configuration.GetValue<bool>("EnableSwagger");
+if (enableSwagger)
 {
-    app.UseSwagger();   
+    app.UseSwagger();
     app.UseSwaggerUI();
 }
 
