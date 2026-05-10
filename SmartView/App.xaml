@@ -4,6 +4,9 @@
              xmlns:local="clr-namespace:SmartView"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
-         
+        <local:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
+        <local:BoolInverseToVisibilityConverter x:Key="BoolInverseToVisibility"/>
+        <local:NullToVisibilityConverter x:Key="NullToVisibility"/>
+        <local:StringEmptyToVisibilityConverter x:Key="StringEmptyToVisibility"/>
     </Application.Resources>
 </Application>

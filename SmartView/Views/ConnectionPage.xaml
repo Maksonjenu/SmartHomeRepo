@@ -1,0 +1,48 @@
+<Page x:Class="SmartView.Views.ConnectionPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      Title="Проверка соединения"
+      Background="#F5F5F5">
+    <Grid VerticalAlignment="Center" HorizontalAlignment="Center">
+        <StackPanel Width="300">
+            <!-- Заголовок -->
+            <TextBlock Text="SmartHome" 
+                       FontSize="32" 
+                       FontWeight="Bold" 
+                       HorizontalAlignment="Center"
+                       Foreground="#333"
+                       Margin="0,0,0,20"/>
+
+            <!-- Статус -->
+            <TextBlock Text="{Binding StatusMessage}" 
+                       FontSize="16" 
+                       HorizontalAlignment="Center"
+                       TextWrapping="Wrap"
+                       Foreground="#666"
+                       Margin="0,0,0,20"/>
+
+            <!-- Загрузка (spinner) -->
+            <StackPanel HorizontalAlignment="Center" Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,20">
+                <ProgressBar IsIndeterminate="True" Height="4" Foreground="#4CAF50"/>
+            </StackPanel>
+
+            <!-- Кнопка Retry -->
+            <Button Command="{Binding RetryCommand}"
+                    Content="Повторить"
+                    Padding="10,12"
+                    FontSize="14"
+                    Background="#4CAF50"
+                    Foreground="White"
+                    Visibility="{Binding IsError, Converter={StaticResource BoolToVisibility}}"
+                    Cursor="Hand"
+                    Margin="0,0,0,20"/>
+
+            <!-- Иконка успеха -->
+            <TextBlock Text="✓" 
+                       FontSize="64" 
+                       HorizontalAlignment="Center"
+                       Foreground="#4CAF50"
+                       Visibility="{Binding IsConnected, Converter={StaticResource BoolToVisibility}}"/>
+        </StackPanel>
+    </Grid>
+</Page>
