@@ -21,6 +21,7 @@ public static partial class ApartmentEndpoints
 
     private static async Task<IResult> GetAllApartments(AppDbContext db, ILogger<LogCategory> logger, INetworkSimulator network)
     {
+        logger.LogInformation("Пользователь отправил запрос на получение списка всех квартир.");
         if (await network.TryGetRandomErrorAsync() == Results.StatusCode(StatusCodes.Status500InternalServerError)) // Имитируем нестабильную сеть (может добавить задержку или вернуть ошибку)
         {
             logger.LogError("Внутренняя ошибка при попытке получить список квартир.");
@@ -46,11 +47,13 @@ public static partial class ApartmentEndpoints
 
         apartments = network.MessWithData(apartments); // Имитируем порчу данных (может очистить список или занулить поля)
 
+        logger.LogInformation("Отправляю список квартир клиенту.");
         return Results.Ok(apartments); // ОБЯЗАТЕЛЬНО возвращаем данные
     }
 
     private static async Task<IResult> GetRoomsInApartment([Description("ID квартиры (НЕ номер квартиры)")] int id, AppDbContext db, ILogger<LogCategory> logger, INetworkSimulator network)
     {
+        logger.LogInformation("Пользователь отправил запрос на получение списка комнат для квартиры с ID {Id}.", id);
         if (await network.TryGetRandomErrorAsync() == Results.StatusCode(StatusCodes.Status500InternalServerError)) // Имитируем нестабильную сеть (может добавить задержку или вернуть ошибку)
         {
             logger.LogError("Внутренняя ошибка при попытке получить список комнат для квартиры. ID: {Id}", id);
@@ -94,11 +97,14 @@ public static partial class ApartmentEndpoints
         rooms = network.MessWithData(rooms); // Имитируем порчу данных (может очистить список или занулить поля)
 
         logger.LogInformation("Получено {Count} комнат для квартиры ID {Id}.", rooms.Count, id);
+        logger.LogInformation("Отправляю список комнат для квартиры ID {Id} клиенту.", id);        
+
         return Results.Ok(rooms);
     }
 
     private static async Task<IResult> CreateApartment([Description("Объект для создания квартиры, внутри строки номера и названия квартиры.")] WriteApartmentDto req, AppDbContext db, ILogger<LogCategory> logger, INetworkSimulator network)
     {
+        logger.LogInformation("Пользователь отправил запрос на создание новой квартиры.");
         if (await network.TryGetRandomErrorAsync() == Results.StatusCode(StatusCodes.Status500InternalServerError)) // Имитируем нестабильную сеть (может добавить задержку или вернуть ошибку)
         {
             logger.LogError("Внутренняя ошибка при попытке создать квартиру. Данные: {@CreateDto}", req);
@@ -107,11 +113,18 @@ public static partial class ApartmentEndpoints
 
         // 1. Валидация (минимально, чтобы GUI не слал мусор)
         if (string.IsNullOrWhiteSpace(req.Number))
+        {
+            logger.LogError("Номер квартиры обязателен.");
             return Results.BadRequest("Номер квартиры обязателен");
+        }
 
         //2. Проверяем уникальность номера квартиры (хотя бы на уровне БД, но тут для примера)
         if (await db.Apartments.AnyAsync(a => a.Number == req.Number))
-            return Results.BadRequest("Квартира с таким номером уже существует");
+
+            {
+                logger.LogError("Квартира с номером {Number} уже существует.", req.Number);
+                return Results.BadRequest("Квартира с таким номером уже существует");
+            }
 
         // 2. Маппинг: Создаем сущность БД из "дефолтных типов" DTO
         var newApartment = new Apartment
@@ -124,6 +137,8 @@ public static partial class ApartmentEndpoints
         db.Apartments.Add(newApartment);
         await db.SaveChangesAsync();
 
+        logger.LogInformation("Создана новая квартира с ID {Id} и номером {Number}.", newApartment.Id, newApartment.Number);
+
         ApartmentDto apartmentDto = new ApartmentDto
         {
             Id = newApartment.Id,
@@ -132,6 +147,7 @@ public static partial class ApartmentEndpoints
             RoomsCount = 0 // Новая квартира, комнат пока нет
         };
 
+        logger.LogInformation("Отправляю информацию о новой квартире клиенту {Id}.", apartmentDto.Id);
         apartmentDto = network.MessWithData(new List<ApartmentDto> { apartmentDto }).First(); // Имитируем порчу данных (может занулить поля)
 
         // 4. Ответ (возвращаем созданный объект с его новым ID)
@@ -140,6 +156,8 @@ public static partial class ApartmentEndpoints
 
     private static async Task<IResult> DeleteApartment([Description("ID квартиры (НЕ номер квартиры)")] int id, AppDbContext db, ILogger<LogCategory> logger, INetworkSimulator network)
     {
+
+        logger.LogInformation("Пользователь отправил запрос на удаление квартиры с ID {Id}.", id);
         if (await network.TryGetRandomErrorAsync() == Results.StatusCode(StatusCodes.Status500InternalServerError)) // Имитируем нестабильную сеть (может добавить задержку или вернуть ошибку)
         {
             logger.LogError("Внутренняя ошибка при попытке удалить квартиру. ID: {Id}", id);
@@ -161,6 +179,7 @@ public static partial class ApartmentEndpoints
 
     private static async Task<IResult> UpdateApartment([Description("ID квартиры (НЕ номер квартиры)")] int id, WriteApartmentDto req, AppDbContext db, ILogger<LogCategory> logger, INetworkSimulator network)
     {
+        logger.LogInformation("Пользователь отправил запрос на обновление информации о квартире с ID {Id}.", id);
         if (await network.TryGetRandomErrorAsync() == Results.StatusCode(StatusCodes.Status500InternalServerError)) // Имитируем нестабильную сеть (может добавить задержку или вернуть ошибку)
         {
             logger.LogError("Внутренняя ошибка при попытке обновить квартиру. ID: {Id}", id);
@@ -176,14 +195,23 @@ public static partial class ApartmentEndpoints
         }
 
         if (req == null)
+        {
+            logger.LogError("Некорректные данные запроса.");
             return Results.BadRequest("Некорректные данные запроса.");
+        }
 
         if (string.IsNullOrWhiteSpace(req.Number))
+        {
+            logger.LogError("Номер квартиры обязателен.");
             return Results.BadRequest("Номер квартиры обязателен");
+        }
 
         // Проверка уникальности номера квартиры (кроме текущей)
         if (await db.Apartments.AnyAsync(a => a.Number == req.Number && a.Id != id))
+        {
+            logger.LogError("Квартира с номером {Number} уже существует.", req.Number);
             return Results.BadRequest("Квартира с таким номером уже существует");
+        }
 
         // Обновление свойств
         apartment.Number = req.Number;
@@ -191,7 +219,17 @@ public static partial class ApartmentEndpoints
 
         await db.SaveChangesAsync();
         logger.LogInformation("Обновлена информация о квартире ID {Id}.", id);
-        return Results.Ok(apartment);
+        logger.LogInformation("Отправляю обновленную информацию о квартире ID {Id} клиенту.", id);
+
+        ApartmentDto apartmentDto = new ApartmentDto
+        {
+            Id = apartment.Id,
+            Number = apartment.Number,
+            Description = apartment.Description,
+            RoomsCount = apartment.Rooms.Count
+        };
+
+        return Results.Ok(apartmentDto);
     }
 
     #endregion
