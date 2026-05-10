@@ -17,8 +17,6 @@ public static partial class ApartmentEndpoints
 
     #region Handlers
 
-    static Random random = new Random();
-
     private static async Task<IResult> GetAllApartments(AppDbContext db, ILogger<LogCategory> logger, INetworkSimulator network)
     {
         if (await network.TryGetRandomErrorAsync() == Results.StatusCode(StatusCodes.Status500InternalServerError)) // Имитируем нестабильную сеть (может добавить задержку или вернуть ошибку)
