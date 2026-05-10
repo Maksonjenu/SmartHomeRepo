@@ -17,8 +17,6 @@ public static partial class ApartmentEndpoints
 
     #region Handlers
 
-    static Random random = new Random();
-
     private static async Task<IResult> GetAllApartments(AppDbContext db, ILogger<LogCategory> logger, INetworkSimulator network)
     {
         logger.LogInformation("Пользователь отправил запрос на получение списка всех квартир.");

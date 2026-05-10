@@ -13,6 +13,8 @@ public static partial class RoomEndpoints
 
     public static async Task<IResult> GetAllRooms(AppDbContext db, ILogger<LogCategory> logger, INetworkSimulator network)
     {
+        logger.LogInformation("Пользователь отправил запрос на получение списка всех комнат.");
+
         if (await network.TryGetRandomErrorAsync() == Results.StatusCode(StatusCodes.Status500InternalServerError)) // Имитируем нестабильную сеть (может добавить задержку или вернуть ошибку)
         {
             logger.LogError("Внутренняя ошибка при попытке получить список комнат.");
@@ -44,6 +46,8 @@ public static partial class RoomEndpoints
 
     public static async Task<IResult> GetRoomInfo(int id, AppDbContext db, ILogger<LogCategory> logger, INetworkSimulator network)
     {
+
+        logger.LogInformation("Пользователь отправил запрос на получение информации о комнате с ID {Id}.", id);
         if (await network.TryGetRandomErrorAsync() == Results.StatusCode(StatusCodes.Status500InternalServerError)) // Имитируем нестабильную сеть (может добавить задержку или вернуть ошибку)
         {
             logger.LogError("Внутренняя ошибка при попытке получить информацию о комнате. ID: {Id}", id);
@@ -74,7 +78,7 @@ public static partial class RoomEndpoints
             return Results.NotFound($"Комната с ID {id} не найдена.");
         }
 
-        logger.LogInformation("Данные для комнаты {Id} успешно получены.", id);
+        logger.LogInformation("Данные для комнаты {Id} успешно отправлены.", id);
         return Results.Ok(room);
     }
 
