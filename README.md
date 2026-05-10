@@ -74,7 +74,7 @@ SmartHomeRepo.exe
 
 ## Swagger
 
-> Swagger UI включен по умолчанию!
+**✅ Swagger UI включён по умолчанию при EnableSwagger=true или в режиме Development.**
 
 Swagger UI доступен, если приложение запущено в режиме Development или если задана опция `EnableSwagger=true`.
 
