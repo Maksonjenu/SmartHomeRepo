@@ -240,7 +240,7 @@ public static partial class RoomEndpoints
         await db.SaveChangesAsync();
 
         logger.LogInformation("Комната с ID {Id} успешно удалена.", id);
-        return Results.Ok();
+        return Results.NoContent();
 
     }
 
